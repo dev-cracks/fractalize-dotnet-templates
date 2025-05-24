@@ -79,24 +79,22 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce) # <-- ¡Paso completamente reescrito!
+    - name: Setup Node.js for vsce
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18' # Una versión LTS estable
+
+    - name: Install vsce CLI
+      run: npm install -g vsce
+      shell: pwsh
+
+    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce)
       run: |
-        # 1. Instalar Node.js (necesario para npm y vsce)
-        # Esto es una acción de GitHub, no un comando de PowerShell.
-        # Por lo tanto, no se puede hacer en el bloque 'run' de este paso.
-        # ¡Necesitamos un paso separado para setup-node!
-        # Por favor, ignora esta sección comentada de 'run'.
+        # Cambiar al directorio donde está el source.extension.vsixmanifest
+        # vsce publish a menudo lo busca en el directorio de trabajo.
+        cd ${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}
 
-        # Los comandos reales para este paso están abajo
-        # 2. Instalar vsce globalmente
-        npm install -g vsce
-
-        # 3. Publicar el paquete VSIX
-        # El PAT debe ser pasado como variable de entorno o directamente.
-        # Es mejor como variable de entorno por seguridad.
-        # La acción 'vsce' buscará el 'source.extension.vsixmanifest'
-        # en el directorio actual o usará el 'packagePath'.
-        # Si tu manifest está en la carpeta del proyecto VSIX, el 'vsce' debería encontrarlo.
-        # Asegúrate de que el PAT tenga los permisos necesarios en Marketplace.
-        vsce publish --packagePath "${{ steps.find_vsix.outputs.vsix_file }}" -p "${{ secrets.VS_MARKETPLACE_PAT }}" --target="Microsoft.VisualStudio.Ide"
+        # Ejecutar el comando vsce publish
+        # NOTA: Se ha eliminado '--target="Microsoft.VisualStudio.Ide"'
+        vsce publish --packagePath "${{ steps.find_vsix.outputs.vsix_file }}" -p "${{ secrets.VS_MARKETPLACE_PAT }}"
       shell: pwsh
