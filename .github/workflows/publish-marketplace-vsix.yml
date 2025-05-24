@@ -30,12 +30,12 @@ jobs:
 
     - name: Restore NuGet packages
       run: dotnet restore ${{ env.SOLUTION_DIRECTORY }}/${{ env.SOLUTION_FILE_NAME }}
-      
+
     - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v1.1 
       with:
         msbuild-version: '17.0'
-    
+
     - name: Build VSIX Project
       run: msbuild.exe `
         "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/${{ env.VSIX_PROJECT_NAME }}.csproj" `
@@ -48,10 +48,27 @@ jobs:
     - name: Find VSIX File
       id: find_vsix 
       run: |
-        $vsixPath = Get-ChildItem -Path "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/bin/${{ env.BUILD_CONFIGURATION }}" -Filter "*.vsix" -Recurse | Select-Object -ExpandProperty FullName
-        if (-not $vsixPath) {
-          throw "No .vsix file found in the expected directory."
+        $searchPath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/bin/${{ env.BUILD_CONFIGURATION }}"
+        Write-Host "DEBUG: Buscando archivo .vsix en el directorio: $searchPath"
+        
+        Write-Host "DEBUG: Contenido de $searchPath:"
+        Get-ChildItem -Path $searchPath -ErrorAction SilentlyContinue | ForEach-Object { Write-Host " - $($_.Name)" }
+
+        $vsixFiles = Get-ChildItem -Path $searchPath -Filter "*.vsix" -Recurse -ErrorAction SilentlyContinue
+        
+        if (-not $vsixFiles) {
+          Write-Host "ERROR: ¡Ningún archivo .vsix encontrado en la ruta esperada: $searchPath!"
+          throw "No se encontró ningún archivo .vsix."
         }
+
+        $vsixPath = $vsixFiles | Select-Object -First 1 -ExpandProperty FullName
+        
+        if ([string]::IsNullOrWhiteSpace($vsixPath)) {
+            Write-Host "ERROR: La ruta del archivo VSIX es nula o vacía después de la selección."
+            throw "La ruta del archivo VSIX es nula o vacía."
+        }
+
+        Write-Host "DEBUG: Archivo VSIX encontrado: $vsixPath"
         echo "vsix_file=$vsixPath" >> $GITHUB_OUTPUT
       shell: pwsh
 
