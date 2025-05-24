@@ -15,11 +15,9 @@ jobs:
     env:
       SOLUTION_FILE_NAME: 'DevCracks.Fractalize.Templates.sln'
       VSIX_PROJECT_NAME: 'DevCracks.Fractalize.Templates.Vsix'
-      
       SOLUTION_DIRECTORY: 'src' 
       BUILD_CONFIGURATION: 'Release' 
       VISUAL_STUDIO_VERSION: '17.0'
-
       MARKETPLACE_EXTENSION_ID: ${{ vars.MARKETPLACE_EXTENSION_ID }}
       MARKETPLACE_PUBLISHER_ID: ${{ vars.MARKETPLACE_PUBLISHER_ID }}
 
