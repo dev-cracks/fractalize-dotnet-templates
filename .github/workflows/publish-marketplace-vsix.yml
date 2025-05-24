@@ -1,0 +1,70 @@
+name: publish-marketplace-vsix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/publish-marketplace-vsix.yml'
+
+jobs:
+  build_and_publish:
+    runs-on: windows-latest
+
+    env:
+      SOLUTION_FILE_NAME: 'DevCracks.Fractalize.Templates.sln'
+      VSIX_PROJECT_NAME: 'DevCracks.Fractalize.Templates.Vsix'
+      
+      SOLUTION_DIRECTORY: 'src' 
+      BUILD_CONFIGURATION: 'Release' 
+      VISUAL_STUDIO_VERSION: '17.0'
+
+      MARKETPLACE_EXTENSION_ID: ${{ vars.MARKETPLACE_EXTENSION_ID }}
+      MARKETPLACE_PUBLISHER_ID: ${{ vars.MARKETPLACE_PUBLISHER_ID }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.x'
+
+    - name: Restore NuGet packages
+      run: dotnet restore ${{ env.SOLUTION_DIRECTORY }}/${{ env.SOLUTION_FILE_NAME }}
+
+    - name: Build VSIX Project
+      run: |
+        & "C:\Program Files\Microsoft Visual Studio\${{ env.VISUAL_STUDIO_VERSION }}\Enterprise\MSBuild\Current\Bin\msbuild.exe" `
+        "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/${{ env.VSIX_PROJECT_NAME }}.csproj" `
+        /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
+        /p:DeployExtension=false `
+        /p:ZipPackage=true `
+        /p:VisualStudioVersion=${{ env.VISUAL_STUDIO_VERSION }} `
+        /t:Build
+
+    - name: Find VSIX File
+      id: find_vsix 
+      run: |
+        $vsixPath = Get-ChildItem -Path "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/bin/${{ env.BUILD_CONFIGURATION }}" -Filter "*.vsix" -Recurse | Select-Object -ExpandProperty FullName
+        if (-not $vsixPath) {
+          throw "No .vsix file found in the expected directory."
+        }
+        echo "vsix_file=$vsixPath" >> $GITHUB_OUTPUT
+      shell: pwsh
+
+    - name: Upload VSIX as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsix-package
+        path: ${{ steps.find_vsix.outputs.vsix_file }}
+
+    - name: Publish VSIX to Visual Studio Marketplace
+      uses: microsoft/publish-visualstudio-extension@v1 
+      with:
+        extensionId: ${{ secrets.MARKETPLACE_EXTENSION_ID }}
+        publisherId: ${{ secrets.MARKETPLACE_PUBLISHER_ID }}   
+        vsixFile: ${{ steps.find_vsix.outputs.vsix_file }} 
+        pat: ${{ secrets.VS_MARKETPLACE_PAT }}
