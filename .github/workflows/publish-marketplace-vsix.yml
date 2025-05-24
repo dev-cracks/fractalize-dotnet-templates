@@ -79,27 +79,60 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Setup Node.js for vsce
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18' 
-
-    - name: Install vsce CLI
-      run: npm install -g vsce
-      shell: pwsh
-
-    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce) # <-- ¡Paso modificado!
+    # --- ¡Volvemos a VsixPublisher.exe! ---
+    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe)
       run: |
-        $vsixProjectDir = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}"
-        Write-Host "DEBUG: Cambiando al directorio del proyecto VSIX: ${vsixProjectDir}"
-        cd $vsixProjectDir
+        # Intentamos localizar VsixPublisher.exe.
+        # Generalmente está en el paquete NuGet Microsoft.VSSDK.BuildTools.
+        # El directorio de packages suele ser C:\Users\runneradmin\.nuget\packages\
+        # o similar en los runners.
 
-        Write-Host "DEBUG: Creando archivo package.json dummy para vsce..."
-        '{"name": "dummy", "version": "0.0.1", "publisher": "dummy"}' | Out-File -FilePath package.json -Encoding utf8
+        # Path común para VsixPublisher.exe
+        $vsixPublisherPath = Get-ChildItem -Path C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\* -Filter VsixPublisher.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
 
-        Write-Host "DEBUG: Listando el contenido completo del directorio actual (con package.json):"
-        Get-ChildItem -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host " - $($_.Name) (Tipo: $($_.GetType().Name)) (Ruta: $($_.FullName))" }
+        if (-not $vsixPublisherPath) {
+            Write-Host "ERROR: VsixPublisher.exe no se encontró en la ruta esperada. Asegúrate de que Microsoft.VSSDK.BuildTools está instalado y su versión."
+            # Si no se encuentra en la ubicación predeterminada,
+            # intenta buscarlo en todo el disco D: o en la carpeta de trabajo, pero esto es más lento.
+            # Podrías necesitar un paso de instalación adicional si no está presente.
+            # Por ahora, lanzaremos un error.
+            throw "VsixPublisher.exe no encontrado."
+        }
 
-        Write-Host "DEBUG: Intentando publicar el VSIX..."
-        vsce publish --packagePath "${{ steps.find_vsix.outputs.vsix_file }}" -p "${{ secrets.VS_MARKETPLACE_PAT }}"
+        Write-Host "DEBUG: VsixPublisher.exe encontrado en: ${vsixPublisherPath}"
+        Write-Host "DEBUG: Publicando el VSIX con VsixPublisher.exe..."
+
+        # Ejecutar VsixPublisher.exe
+        # El comando es similar a: VsixPublisher.exe publish -payload <path_to_vsix> -publishManifestPath <path_to_vsixmanifest> -personalAccessToken <PAT>
+        # Sin embargo, 'vsce publish' ya maneja la lectura del vsixmanifest.
+        # VsixPublisher.exe típicamente usa el PAT y la ruta al vsix.
+        # El 'publisher' es una parte crucial aquí, que vsce infiere del package.json o vsixmanifest.
+        # Para VsixPublisher.exe, debes haber configurado tu publisher en el Marketplace.
+
+        # Comando VsixPublisher.exe:
+        # Se necesita el ID del editor (publisher ID) y el ID de la extensión.
+        # Estos se obtienen del source.extension.vsixmanifest.
+        # Si no lo tienes a mano, podrías necesitar leer el XML.
+        # Para simplificar, asumimos que el PAT es suficiente para la identificación.
+        # Si da errores de publisher, necesitarás añadir -publisherId <YourPublisherID>
+        # Puedes obtener tu publisher ID de la URL de tu publisher en el Marketplace:
+        # https://marketplace.visualstudio.com/manage/publishers/YourPublisherID
+        # Y el Extension ID del source.extension.vsixmanifest o de la URL de tu extensión:
+        # https://marketplace.visualstudio.com/items?itemName=YourPublisherID.YourExtensionID
+
+        # Sintaxis típica para VsixPublisher.exe:
+        # VsixPublisher.exe publish -payload "path\to\YourExtension.vsix" -publishManifestPath "path\to\source.extension.vsixmanifest" -personalAccessToken YourPAT
+        # O, si el publisher y extension ID ya están en el vsixmanifest:
+        # VsixPublisher.exe publish -payload "path\to\YourExtension.vsix" -personalAccessToken YourPAT
+
+        # Ya tenemos el vsix path y el PAT. El vsixmanifest está DENTRO del .vsix,
+        # pero VsixPublisher.exe a veces también quiere la ruta al archivo fuente del manifest.
+        # Vamos a intentar con solo el payload y PAT primero.
+
+        $vsixManifestSourcePath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/source.extension.vsixmanifest"
+
+        & "${vsixPublisherPath}" publish `
+            -payload "${{ steps.find_vsix.outputs.vsix_file }}" `
+            -publishManifestPath "${vsixManifestSourcePath}" `
+            -personalAccessToken "${{ secrets.VS_MARKETPLACE_PAT }}"
       shell: pwsh
