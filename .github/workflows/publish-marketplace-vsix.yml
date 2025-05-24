@@ -1,87 +1,138 @@
-Run # Intentamos localizar VsixPublisher.exe.
-  # Intentamos localizar VsixPublisher.exe.
-  $vsixPublisherPath = Get-ChildItem -Path C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\* -Filter VsixPublisher.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
-  
-  if (-not $vsixPublisherPath) {
-      Write-Host "ERROR: VsixPublisher.exe no se encontró. Asegúrate de que Microsoft.VSSDK.BuildTools está instalado."
-      throw "VsixPublisher.exe no encontrado."
-  }
-  
-  Write-Host "DEBUG: VsixPublisher.exe encontrado en: ${vsixPublisherPath}"
-  
-  # 1. Obtener la ruta al source.extension.vsixmanifest
-  $vsixManifestSourcePath = "src/DevCracks.Fractalize.Templates.Vsix/source.extension.vsixmanifest"
-  
-  # 2. Cargar el XML del manifiesto
-  [xml]$vsixManifestXml = Get-Content $vsixManifestSourcePath
-  
-  # 3. Extraer detalles para el manifiesto JSON de publicación
-  $extensionId = $vsixManifestXml.PackageManifest.Metadata.Identity.Id
-  $publisherId = $vsixManifestXml.PackageManifest.Metadata.Identity.Publisher
-  $version = $vsixManifestXml.PackageManifest.Metadata.Identity.Version
-  # $extensionName no es necesario aquí, se infiere del VSIX o del Marketplace.
-  
-  Write-Host "DEBUG: Datos extraídos del source.extension.vsixmanifest:"
-  Write-Host "DEBUG:   ID de la extensión: $extensionId"
-  Write-Host "DEBUG:   ID del publicador: $publisherId"
-  Write-Host "DEBUG:   Versión: $version"
-  
-  # 4. Crear el contenido del manifiesto de publicación JSON con la estructura 'identity' anidada
-  $publishManifestContent = @{
-      identity = @{ # <--- ¡Nueva sección 'identity' y estructura corregida!
-          id = $extensionId
-          publisher = $publisherId
-          version = $version
-      }
-      # Puedes añadir otras propiedades aquí si el Marketplace las requiere para la publicación inicial,
-      # por ejemplo, "galleryFlags": "Public", "tags": ["tag1", "tag2"], "categories": ["category1"]
-      # Pero para la publicación básica, 'identity' es lo principal.
-  } | ConvertTo-Json -Depth 10 # Convertir a JSON
-  
-  # 5. Guardar el manifiesto JSON en un archivo temporal
-  $publishManifestJsonPath = "D:\a\_temp/publishManifest.json" # Guardar en un directorio temporal seguro
-  $publishManifestContent | Out-File -FilePath $publishManifestJsonPath -Encoding utf8
-  
-  Write-Host "DEBUG: Manifiesto JSON de publicación creado en: ${publishManifestJsonPath}"
-  Write-Host "DEBUG: Contenido del publishManifest.json:"
-  Get-Content $publishManifestJsonPath
-  
-  Write-Host "DEBUG: Publicando el VSIX con VsixPublisher.exe..."
-  
-  # 6. Ejecutar VsixPublisher.exe con los argumentos correctos
-  & "${vsixPublisherPath}" publish `
-      -payload "D:\a\fractalize-dotnet-templates\fractalize-dotnet-templates\src\DevCracks.Fractalize.Templates.Vsix\bin\Release\DevCracks.Fractalize.Templates.Vsix.vsix" `
-      -publishManifest "${publishManifestJsonPath}" ` # <-- ¡Argumento corregido y apuntando al JSON correcto!
-      -personalAccessToken "***"
-  shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
-  env:
-    SOLUTION_FILE_NAME: DevCracks.Fractalize.Templates.sln
-    VSIX_PROJECT_NAME: DevCracks.Fractalize.Templates.Vsix
-    SOLUTION_DIRECTORY: src
-    BUILD_CONFIGURATION: Release
-    DOTNET_ROOT: C:\Program Files\dotnet
-  
-DEBUG: VsixPublisher.exe encontrado en: C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\17.14.2094\tools\vssdk\bin\lib\VsixPublisher.exe
-DEBUG: Datos extraídos del source.extension.vsixmanifest:
-DEBUG:   ID de la extensión: DevCracks.Fractalize.Templates.Vsix
-DEBUG:   ID del publicador: Dev Cracks
-DEBUG:   Versión: 1.0
-DEBUG: Manifiesto JSON de publicación creado en: D:\a\_temp/publishManifest.json
-DEBUG: Contenido del publishManifest.json:
-{
-  "identity": {
-    "version": "1.0",
-    "publisher": "Dev Cracks",
-    "id": "DevCracks.Fractalize.Templates.Vsix"
-  }
-}
-DEBUG: Publicando el VSIX con VsixPublisher.exe...
-VSSDK: error VsixPub0003 : Encountered an exception when reading the publisher manifest: Required property 'internalName' not found in JSON. Path 'identity', line 6, position 3.
--personalAccessToken: D:\a\_temp\41a3192d-92c9-4aed-9515-025e8cf3a70d.ps1:55
-Line |
-  55 |      -personalAccessToken "3KpACnLrdY9IjLYQrfQnJRXuvst9SL5cC5xR5QUTSqz …
-     |      ~~~~~~~~~~~~~~~~~~~~
-     | The term '-personalAccessToken' is not recognized as a name of a cmdlet, function, script file, or executable
-     | program. Check the spelling of the name, or if a path was included, verify that the path is correct and try
-     | again.
-Error: Process completed with exit code 1.
+name: publish-marketplace-vsix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/publish-marketplace-vsix.yml'
+
+jobs:
+  build_and_publish:
+    runs-on: windows-latest
+
+    env:
+      SOLUTION_FILE_NAME: 'DevCracks.Fractalize.Templates.sln'
+      VSIX_PROJECT_NAME: 'DevCracks.Fractalize.Templates.Vsix'
+      
+      SOLUTION_DIRECTORY: 'src' 
+      BUILD_CONFIGURATION: 'Release' 
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4 
+      with:
+        dotnet-version: '8.x'
+
+    - name: Restore NuGet packages
+      run: dotnet restore ${{ env.SOLUTION_DIRECTORY }}/${{ env.SOLUTION_FILE_NAME }}
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1 
+      with:
+        msbuild-version: '17.0'
+
+    - name: Build VSIX Project
+      run: msbuild.exe `
+        "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/${{ env.VSIX_PROJECT_NAME }}.csproj" `
+        /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
+        /p:DeployExtension=false `
+        /p:ZipPackage=true `
+        /t:Build
+      shell: pwsh
+
+    - name: Find VSIX File 
+      id: find_vsix 
+      run: |
+        $searchPath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/bin/${{ env.BUILD_CONFIGURATION }}"
+        Write-Host "DEBUG: Buscando archivo .vsix en el directorio: ${searchPath}"
+        
+        Write-Host "DEBUG: Contenido de ${searchPath}:" 
+        Get-ChildItem -Path $searchPath -ErrorAction SilentlyContinue | ForEach-Object { Write-Host " - $($_.Name)" }
+
+        $vsixFiles = Get-ChildItem -Path $searchPath -Filter "*.vsix" -Recurse -ErrorAction SilentlyContinue
+        
+        if (-not $vsixFiles) {
+          Write-Host "ERROR: ¡Ningún archivo .vsix encontrado en la ruta esperada: ${searchPath}!"
+          throw "No se encontró ningún archivo .vsix." 
+        }
+
+        $foundVsixFullPath = ($vsixFiles | Select-Object -First 1 -ExpandProperty FullName)
+        $vsixPathOutput = $foundVsixFullPath.ToString().Trim()
+
+        if ([string]::IsNullOrWhiteSpace($vsixPathOutput)) {
+            Write-Host "ERROR: La ruta del archivo VSIX es nula o vacía después de la selección y limpieza."
+            throw "La ruta del archivo VSIX es nula o vacía."
+        }
+
+        Write-Host "DEBUG: Archivo VSIX encontrado (FINAL para salida): ${vsixPathOutput}"
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "vsix_file=$vsixPathOutput"
+      shell: pwsh
+
+    - name: Upload VSIX as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsix-package
+        path: ${{ steps.find_vsix.outputs.vsix_file }}
+
+    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe) # <-- ¡Paso modificado!
+      run: |
+        # Intentamos localizar VsixPublisher.exe.
+        $vsixPublisherPath = Get-ChildItem -Path C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\* -Filter VsixPublisher.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+
+        if (-not $vsixPublisherPath) {
+            Write-Host "ERROR: VsixPublisher.exe no se encontró. Asegúrate de que Microsoft.VSSDK.BuildTools está instalado."
+            throw "VsixPublisher.exe no encontrado."
+        }
+
+        Write-Host "DEBUG: VsixPublisher.exe encontrado en: ${vsixPublisherPath}"
+
+        # 1. Obtener la ruta al source.extension.vsixmanifest
+        $vsixManifestSourcePath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/source.extension.vsixmanifest"
+        
+        # 2. Cargar el XML del manifiesto
+        [xml]$vsixManifestXml = Get-Content $vsixManifestSourcePath
+
+        # 3. Extraer detalles para el manifiesto JSON de publicación
+        $extensionId = $vsixManifestXml.PackageManifest.Metadata.Identity.Id
+        $publisherId = $vsixManifestXml.PackageManifest.Metadata.Identity.Publisher
+        $version = $vsixManifestXml.PackageManifest.Metadata.Identity.Version
+
+        Write-Host "DEBUG: Datos extraídos del source.extension.vsixmanifest:"
+        Write-Host "DEBUG:   ID de la extensión: $extensionId"
+        Write-Host "DEBUG:   ID del publicador: $publisherId"
+        Write-Host "DEBUG:   Versión: $version"
+
+        # 4. Crear el contenido del manifiesto de publicación JSON con la estructura 'identity' anidada
+        $publishManifestContent = @{
+            identity = @{ # <--- ¡Nueva sección 'identity' y estructura corregida!
+                id = $extensionId
+                publisher = $publisherId
+                version = $version
+                internalName = $extensionId # <--- ¡Añadido 'internalName'!
+            }
+            # Puedes añadir otras propiedades aquí si el Marketplace las requiere para la publicación inicial,
+            # por ejemplo, "galleryFlags": "Public", "tags": ["tag1", "tag2"], "categories": ["category1"]
+            # Pero para la publicación básica, 'identity' es lo principal.
+        } | ConvertTo-Json -Depth 10 # Convertir a JSON
+
+        # 5. Guardar el manifiesto JSON en un archivo temporal
+        $publishManifestJsonPath = "${{ runner.temp }}/publishManifest.json" # Guardar en un directorio temporal seguro
+        $publishManifestContent | Out-File -FilePath $publishManifestJsonPath -Encoding utf8
+
+        Write-Host "DEBUG: Manifiesto JSON de publicación creado en: ${publishManifestJsonPath}"
+        Write-Host "DEBUG: Contenido del publishManifest.json:"
+        Get-Content $publishManifestJsonPath
+
+        Write-Host "DEBUG: Publicando el VSIX con VsixPublisher.exe..."
+
+        # 6. Ejecutar VsixPublisher.exe con los argumentos correctos
+        & "${vsixPublisherPath}" publish `
+            -payload "${{ steps.find_vsix.outputs.vsix_file }}" `
+            -publishManifest "${publishManifestJsonPath}" ` # <-- ¡Argumento corregido y apuntando al JSON correcto!
+            -personalAccessToken "${{ secrets.VS_MARKETPLACE_PAT }}"
+      shell: pwsh
