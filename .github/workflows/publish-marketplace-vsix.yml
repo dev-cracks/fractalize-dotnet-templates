@@ -79,7 +79,7 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe)
+    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe) # <-- ¡Paso modificado!
       run: |
         # Intentamos localizar VsixPublisher.exe.
         $vsixPublisherPath = Get-ChildItem -Path C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\* -Filter VsixPublisher.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
@@ -115,8 +115,8 @@ jobs:
                 version = $version
                 internalName = $extensionId 
             }
-            # ¡Categorías ajustadas a las más comunes y seguras para el Marketplace!
-            categories = @("Productivity", "Languages") # Cambiando categorías
+            # ¡Categoría ajustada a "Other" como último recurso!
+            categories = @("Other") 
         } | ConvertTo-Json -Depth 10 # Convertir a JSON
 
         # 5. Guardar el manifiesto JSON en un archivo temporal
