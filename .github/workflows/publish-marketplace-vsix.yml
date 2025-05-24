@@ -30,7 +30,12 @@ jobs:
 
     - name: Restore NuGet packages
       run: dotnet restore ${{ env.SOLUTION_DIRECTORY }}/${{ env.SOLUTION_FILE_NAME }}
-
+      
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+      with:
+        msbuild-version: '17.0'
+    
     - name: Build VSIX Project
       run: msbuild.exe `
         "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/${{ env.VSIX_PROJECT_NAME }}.csproj" `
