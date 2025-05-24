@@ -79,8 +79,24 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Publish VSIX to Visual Studio Marketplace 
-      uses: vsce-action/vsce-publish@release # <-- ¡Cambio aquí: de @v2 a @release!
-      with:
-        pat: ${{ secrets.VS_MARKETPLACE_PAT }}
-        packagePath: ${{ steps.find_vsix.outputs.vsix_file }}
+    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce) # <-- ¡Paso completamente reescrito!
+      run: |
+        # 1. Instalar Node.js (necesario para npm y vsce)
+        # Esto es una acción de GitHub, no un comando de PowerShell.
+        # Por lo tanto, no se puede hacer en el bloque 'run' de este paso.
+        # ¡Necesitamos un paso separado para setup-node!
+        # Por favor, ignora esta sección comentada de 'run'.
+
+        # Los comandos reales para este paso están abajo
+        # 2. Instalar vsce globalmente
+        npm install -g vsce
+
+        # 3. Publicar el paquete VSIX
+        # El PAT debe ser pasado como variable de entorno o directamente.
+        # Es mejor como variable de entorno por seguridad.
+        # La acción 'vsce' buscará el 'source.extension.vsixmanifest'
+        # en el directorio actual o usará el 'packagePath'.
+        # Si tu manifest está en la carpeta del proyecto VSIX, el 'vsce' debería encontrarlo.
+        # Asegúrate de que el PAT tenga los permisos necesarios en Marketplace.
+        vsce publish --packagePath "${{ steps.find_vsix.outputs.vsix_file }}" -p "${{ secrets.VS_MARKETPLACE_PAT }}" --target="Microsoft.VisualStudio.Ide"
+      shell: pwsh
