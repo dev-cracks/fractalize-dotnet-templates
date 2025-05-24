@@ -33,14 +33,22 @@ jobs:
     - name: Restore NuGet packages
       run: dotnet restore ${{ env.SOLUTION_DIRECTORY }}/${{ env.SOLUTION_FILE_NAME }}
 
+    - name: Find MSBuild.exe path
+      id: find_msbuild
+      run: |
+        $msbuildPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products Microsoft.VisualStudio.Product.Enterprise Microsoft.VisualStudio.Product.Professional Microsoft.VisualStudio.Product.Community -requires Microsoft.Component.MSBuild -property installationPath
+        $msbuildExe = Join-Path $msbuildPath "MSBuild\Current\Bin\msbuild.exe"
+        Write-Host "Found MSBuild at: $msbuildExe"
+        echo "msbuild_path=$msbuildExe" >> $GITHUB_OUTPUT
+      shell: pwsh
+
     - name: Build VSIX Project
       run: |
-        & "C:\Program Files\Microsoft Visual Studio\${{ env.VISUAL_STUDIO_VERSION }}\Enterprise\MSBuild\Current\Bin\msbuild.exe" `
+        & "${{ steps.find_msbuild.outputs.msbuild_path }}" `
         "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/${{ env.VSIX_PROJECT_NAME }}.csproj" `
         /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
         /p:DeployExtension=false `
         /p:ZipPackage=true `
-        /p:VisualStudioVersion=${{ env.VISUAL_STUDIO_VERSION }} `
         /t:Build
 
     - name: Find VSIX File
