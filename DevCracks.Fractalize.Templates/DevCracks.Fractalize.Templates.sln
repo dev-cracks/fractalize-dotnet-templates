@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35828.75 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DevCracks.Fractalize.Templates.Vsix", "DevCracks.Fractalize.Templates.Vsix\DevCracks.Fractalize.Templates.Vsix.csproj", "{CEEE0820-0335-4D8A-B328-C37D6B1486BD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|arm64 = Debug|arm64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|arm64 = Release|arm64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Debug|arm64.ActiveCfg = Debug|arm64
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Debug|arm64.Build.0 = Debug|arm64
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Debug|x86.ActiveCfg = Debug|x86
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Debug|x86.Build.0 = Debug|x86
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Release|arm64.ActiveCfg = Release|arm64
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Release|arm64.Build.0 = Release|arm64
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Release|x86.ActiveCfg = Release|x86
+		{CEEE0820-0335-4D8A-B328-C37D6B1486BD}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {04BB77CE-4E1F-4D7C-99BF-43F29DAECA70}
+	EndGlobalSection
+EndGlobal
