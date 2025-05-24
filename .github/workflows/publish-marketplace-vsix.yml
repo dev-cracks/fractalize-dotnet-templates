@@ -101,13 +101,45 @@ jobs:
         $extensionId = $vsixManifestXml.PackageManifest.Metadata.Identity.Id
         $publisherId = $vsixManifestXml.PackageManifest.Metadata.Identity.Publisher
         $version = $vsixManifestXml.PackageManifest.Metadata.Identity.Version
+        $displayName = $vsixManifestXml.PackageManifest.Metadata.DisplayName
+        # Acceder al texto interno de la descripción (manejar si es nulo o vacío)
+        $description = $vsixManifestXml.PackageManifest.Metadata.Description.'#text'
+        if ([string]::IsNullOrEmpty($description)) {
+            $description = "A Visual Studio extension." # Fallback default description
+        }
+
+        # Extraer categorías del manifiesto XML
+        $categories = @()
+        if ($vsixManifestXml.PackageManifest.Metadata.Categories.Category) {
+            # Si hay múltiples categorías, se accede como un array
+            $vsixManifestXml.PackageManifest.Metadata.Categories.Category | ForEach-Object { $categories += $_.'#text' }
+        }
+        # Si no se encuentran categorías en el XML, usar un fallback (aunque ahora deberían estar)
+        if ($categories.Count -eq 0) {
+            Write-Host "WARNING: No se encontraron categorías en source.extension.vsixmanifest. Usando categorías por defecto."
+            $categories = @("Tools", "Productivity") # Fallback si no se definen en XML
+        }
+
+        # Construir la ruta absoluta al README.md en la raíz del repositorio
+        $repoRoot = "${{ github.workspace }}" 
+        $readmePath = Join-Path -Path $repoRoot -ChildPath "README.md"
+        # Asegurarse de que el README.md exista
+        if (-not (Test-Path -Path $readmePath)) {
+            Write-Host "ERROR: El archivo README.md no se encontró en la raíz del repositorio: ${readmePath}"
+            throw "README.md no encontrado."
+        }
+
 
         Write-Host "DEBUG: Datos extraídos del source.extension.vsixmanifest:"
         Write-Host "DEBUG:   ID de la extensión: $extensionId"
         Write-Host "DEBUG:   ID del publicador: $publisherId"
+        Write-Host "DEBUG:   Nombre para mostrar: $displayName"
+        Write-Host "DEBUG:   Descripción: $description"
         Write-Host "DEBUG:   Versión: $version"
+        Write-Host "DEBUG:   Categorías extraídas: $($categories -join ', ')"
+        Write-Host "DEBUG:   Ruta del README.md: ${readmePath}"
 
-        # 4. Crear el contenido del manifiesto de publicación JSON con la estructura 'identity' y 'categories'
+        # 4. Crear el contenido del manifiesto de publicación JSON con la estructura completa
         $publishManifestContent = @{
             identity = @{ 
                 id = $extensionId
@@ -115,8 +147,13 @@ jobs:
                 version = $version
                 internalName = $extensionId 
             }
-            # ¡Categoría ajustada a "Other" como último recurso!
-            categories = @("Other") 
+            # Propiedades de nivel superior
+            displayName = $displayName
+            description = $description
+            categories = $categories 
+            galleryFlags = "Public" 
+            overview = $readmePath # ¡Añadido: Ruta al archivo README.md!
+            # Puedes añadir tags aquí si es necesario, e.g., tags = @("template", "csharp")
         } | ConvertTo-Json -Depth 10 # Convertir a JSON
 
         # 5. Guardar el manifiesto JSON en un archivo temporal
