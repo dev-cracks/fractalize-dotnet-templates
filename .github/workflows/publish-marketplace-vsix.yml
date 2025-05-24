@@ -88,14 +88,16 @@ jobs:
       run: npm install -g vsce
       shell: pwsh
 
-    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce) # <-- ¡Paso modificado para depuración!
+    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce) # <-- ¡Paso modificado!
       run: |
         $vsixProjectDir = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}"
         Write-Host "DEBUG: Cambiando al directorio del proyecto VSIX: ${vsixProjectDir}"
         cd $vsixProjectDir
 
-        Write-Host "DEBUG: Listando el contenido completo del directorio actual para encontrar el manifest:"
-        # Listar contenido recursivamente para encontrar el manifest si está en una subcarpeta
+        Write-Host "DEBUG: Creando archivo package.json dummy para vsce..."
+        '{"name": "dummy", "version": "0.0.1", "publisher": "dummy"}' | Out-File -FilePath package.json -Encoding utf8
+
+        Write-Host "DEBUG: Listando el contenido completo del directorio actual (con package.json):"
         Get-ChildItem -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host " - $($_.Name) (Tipo: $($_.GetType().Name)) (Ruta: $($_.FullName))" }
 
         Write-Host "DEBUG: Intentando publicar el VSIX..."
