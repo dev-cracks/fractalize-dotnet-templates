@@ -4,6 +4,11 @@
 		<Identity Id="DevCracks.Fractalize.Templates.Vsix" Version="1.0" Language="en-US" Publisher="Dev Cracks" />
 		<DisplayName>DevCracks.Fractalize.Templates.Vsix</DisplayName>
 		<Description xml:space="preserve">Empty VSIX Project.</Description>
+		<Categories>
+			<Category>Productivity</Category>
+			<Category>Languages</Category>
+			<Category>Tools</Category>
+		</Categories>
 		<MoreInfo>https://dev-cracks.github.io/dev-cracks/</MoreInfo>
 		<License>LICENSE</License>
 		<GettingStartedGuide>https://dev-cracks.github.io/dev-cracks/docs</GettingStartedGuide>
@@ -23,6 +28,6 @@
 		<Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.0,18.0)" DisplayName="Visual Studio core editor" />
 	</Prerequisites>
 	<Assets>
-		<Asset Type="Microsoft.VisualStudio.ItemTemplate" d:Source="File" Path="ItemTemplates\CSharp\Classes\WithFileScopedNamespace" />
+		<Asset Type="Microsoft.VisualStudio.ItemTemplate" d:Source="File" Path="ItemTemplates/CSharp/Classes/WithFileScopedNamespace" />
 	</Assets>
 </PackageManifest>
