@@ -79,60 +79,60 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    # --- ¡Volvemos a VsixPublisher.exe! ---
-    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe)
+    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe) # <-- ¡Paso modificado!
       run: |
         # Intentamos localizar VsixPublisher.exe.
-        # Generalmente está en el paquete NuGet Microsoft.VSSDK.BuildTools.
-        # El directorio de packages suele ser C:\Users\runneradmin\.nuget\packages\
-        # o similar en los runners.
-
-        # Path común para VsixPublisher.exe
         $vsixPublisherPath = Get-ChildItem -Path C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\* -Filter VsixPublisher.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
 
         if (-not $vsixPublisherPath) {
-            Write-Host "ERROR: VsixPublisher.exe no se encontró en la ruta esperada. Asegúrate de que Microsoft.VSSDK.BuildTools está instalado y su versión."
-            # Si no se encuentra en la ubicación predeterminada,
-            # intenta buscarlo en todo el disco D: o en la carpeta de trabajo, pero esto es más lento.
-            # Podrías necesitar un paso de instalación adicional si no está presente.
-            # Por ahora, lanzaremos un error.
+            Write-Host "ERROR: VsixPublisher.exe no se encontró. Asegúrate de que Microsoft.VSSDK.BuildTools está instalado."
             throw "VsixPublisher.exe no encontrado."
         }
 
         Write-Host "DEBUG: VsixPublisher.exe encontrado en: ${vsixPublisherPath}"
+
+        # 1. Obtener la ruta al source.extension.vsixmanifest
+        $vsixManifestSourcePath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/source.extension.vsixmanifest"
+        
+        # 2. Cargar el XML del manifiesto
+        [xml]$vsixManifestXml = Get-Content $vsixManifestSourcePath
+
+        # 3. Extraer detalles para el manifiesto JSON de publicación
+        $extensionId = $vsixManifestXml.PackageManifest.Metadata.Identity.Id
+        $publisherId = $vsixManifestXml.PackageManifest.Metadata.Identity.Publisher
+        $extensionName = $vsixManifestXml.PackageManifest.Metadata.DisplayName
+        # La versión se infiere del VSIX, pero se puede incluir para claridad
+        $version = $vsixManifestXml.PackageManifest.Metadata.Identity.Version
+
+        Write-Host "DEBUG: Datos extraídos del source.extension.vsixmanifest:"
+        Write-Host "DEBUG:   ID de la extensión: $extensionId"
+        Write-Host "DEBUG:   ID del publicador: $publisherId"
+        Write-Host "DEBUG:   Nombre de la extensión: $extensionName"
+        Write-Host "DEBUG:   Versión: $version"
+
+        # 4. Crear el contenido del manifiesto de publicación JSON
+        $publishManifestContent = @{
+            extensionId = $extensionId
+            publisherId = $publisherId
+            extensionName = $extensionName
+            version = $version
+            # Puedes añadir más propiedades si son necesarias para tu extensión específica
+            # Por ejemplo: "categories": ["Visual Studio", "Tools"], "tags": ["template", "fractalize"]
+        } | ConvertTo-Json -Depth 10 # Convertir a JSON
+
+        # 5. Guardar el manifiesto JSON en un archivo temporal
+        $publishManifestJsonPath = "${{ runner.temp }}/publishManifest.json" # Guardar en un directorio temporal seguro
+        $publishManifestContent | Out-File -FilePath $publishManifestJsonPath -Encoding utf8
+
+        Write-Host "DEBUG: Manifiesto JSON de publicación creado en: ${publishManifestJsonPath}"
+        Write-Host "DEBUG: Contenido del publishManifest.json:"
+        Get-Content $publishManifestJsonPath
+
         Write-Host "DEBUG: Publicando el VSIX con VsixPublisher.exe..."
 
-        # Ejecutar VsixPublisher.exe
-        # El comando es similar a: VsixPublisher.exe publish -payload <path_to_vsix> -publishManifestPath <path_to_vsixmanifest> -personalAccessToken <PAT>
-        # Sin embargo, 'vsce publish' ya maneja la lectura del vsixmanifest.
-        # VsixPublisher.exe típicamente usa el PAT y la ruta al vsix.
-        # El 'publisher' es una parte crucial aquí, que vsce infiere del package.json o vsixmanifest.
-        # Para VsixPublisher.exe, debes haber configurado tu publisher en el Marketplace.
-
-        # Comando VsixPublisher.exe:
-        # Se necesita el ID del editor (publisher ID) y el ID de la extensión.
-        # Estos se obtienen del source.extension.vsixmanifest.
-        # Si no lo tienes a mano, podrías necesitar leer el XML.
-        # Para simplificar, asumimos que el PAT es suficiente para la identificación.
-        # Si da errores de publisher, necesitarás añadir -publisherId <YourPublisherID>
-        # Puedes obtener tu publisher ID de la URL de tu publisher en el Marketplace:
-        # https://marketplace.visualstudio.com/manage/publishers/YourPublisherID
-        # Y el Extension ID del source.extension.vsixmanifest o de la URL de tu extensión:
-        # https://marketplace.visualstudio.com/items?itemName=YourPublisherID.YourExtensionID
-
-        # Sintaxis típica para VsixPublisher.exe:
-        # VsixPublisher.exe publish -payload "path\to\YourExtension.vsix" -publishManifestPath "path\to\source.extension.vsixmanifest" -personalAccessToken YourPAT
-        # O, si el publisher y extension ID ya están en el vsixmanifest:
-        # VsixPublisher.exe publish -payload "path\to\YourExtension.vsix" -personalAccessToken YourPAT
-
-        # Ya tenemos el vsix path y el PAT. El vsixmanifest está DENTRO del .vsix,
-        # pero VsixPublisher.exe a veces también quiere la ruta al archivo fuente del manifest.
-        # Vamos a intentar con solo el payload y PAT primero.
-
-        $vsixManifestSourcePath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/source.extension.vsixmanifest"
-
+        # 6. Ejecutar VsixPublisher.exe con los argumentos correctos
         & "${vsixPublisherPath}" publish `
             -payload "${{ steps.find_vsix.outputs.vsix_file }}" `
-            -publishManifestPath "${vsixManifestSourcePath}" `
+            -publishManifest "${publishManifestJsonPath}" ` # <-- ¡Argumento corregido!
             -personalAccessToken "${{ secrets.VS_MARKETPLACE_PAT }}"
       shell: pwsh
