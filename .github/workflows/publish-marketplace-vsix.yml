@@ -79,15 +79,13 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Publish VSIX to Visual Studio Marketplace # <-- ¡Paso modificado!
-      uses: mrluje/vs-marketplace-publisher@v2
+    - name: Publish VSIX to Visual Studio Marketplace # <-- ¡Paso completamente cambiado!
+      uses: vsce-action/vsce-publish@v2 # Usamos una acción diferente
       with:
-        # El nombre del input ha cambiado de vsixFile a vsixPath
-        vsixPath: ${{ steps.find_vsix.outputs.vsix_file }} 
-        # extensionId y publisherId YA NO SON NECESARIOS, se infieren del manifest
-        
-        # Necesitamos la ruta al archivo source.extension.vsixmanifest
-        manifestPath: ${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/source.extension.vsixmanifest
-        
-        # El PAT sigue siendo necesario
         pat: ${{ secrets.VS_MARKETPLACE_PAT }}
+        # Nota: vsce-action/vsce-publish normalmente publica la extensión del directorio actual
+        # o toma un archivo VSIX si se especifica un packagePath.
+        # Ya tenemos el .vsix listo, así que lo pasamos.
+        packagePath: ${{ steps.find_vsix.outputs.vsix_file }} 
+        # La acción 'vsce-publish' infiere el publisher/extensionId del vsixmanifest,
+        # no necesitas pasarlos como inputs separados.
