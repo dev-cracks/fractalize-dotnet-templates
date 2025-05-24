@@ -15,11 +15,10 @@ jobs:
     env:
       SOLUTION_FILE_NAME: 'DevCracks.Fractalize.Templates.sln'
       VSIX_PROJECT_NAME: 'DevCracks.Fractalize.Templates.Vsix'
+      
       SOLUTION_DIRECTORY: 'src' 
       BUILD_CONFIGURATION: 'Release' 
-      VISUAL_STUDIO_VERSION: '17.0'
-      MARKETPLACE_EXTENSION_ID: ${{ vars.MARKETPLACE_EXTENSION_ID }}
-      MARKETPLACE_PUBLISHER_ID: ${{ vars.MARKETPLACE_PUBLISHER_ID }}
+      # VISUAL_STUDIO_VERSION ya no es tan crítico si usamos vswhere
 
     steps:
     - name: Checkout Repository
@@ -36,10 +35,32 @@ jobs:
     - name: Find MSBuild.exe path
       id: find_msbuild
       run: |
-        $msbuildPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products Microsoft.VisualStudio.Product.Enterprise Microsoft.VisualStudio.Product.Professional Microsoft.VisualStudio.Product.Community -requires Microsoft.Component.MSBuild -property installationPath
-        $msbuildExe = Join-Path $msbuildPath "MSBuild\Current\Bin\msbuild.exe"
-        Write-Host "Found MSBuild at: $msbuildExe"
-        echo "msbuild_path=$msbuildExe" >> $GITHUB_OUTPUT
+        $ErrorActionPreference = "Continue"
+
+        $vswherePath = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (-not (Test-Path $vswherePath)) {
+            Write-Host "ERROR: vswhere.exe no encontrado en: $vswherePath"
+            exit 1
+        }
+
+        $installationPath = & $vswherePath -latest -prerelease -products Microsoft.VisualStudio.Product.Enterprise Microsoft.VisualStudio.Product.Professional Microsoft.VisualStudio.Product.Community -requires Microsoft.Component.MSBuild -property installationPath
+        
+        if ([string]::IsNullOrWhiteSpace($installationPath)) {
+            $installationPath = & $vswherePath -latest -prerelease -property installationPath
+            if ([string]::IsNullOrWhiteSpace($installationPath)) {
+                 Write-Host "FATAL ERROR: No se encontró ninguna instalación de Visual Studio. No se puede continuar."
+                 exit 1
+            }
+        }
+
+        $msbuildExePath = Join-Path $installationPath "MSBuild\Current\Bin\msbuild.exe"
+        
+        if (-not (Test-Path $msbuildExePath)) {
+            Write-Host "ERROR: msbuild.exe no encontrado en la ruta construida: $msbuildExePath"
+            exit 1
+        }
+
+        echo "msbuild_path=$msbuildExePath" >> $GITHUB_OUTPUT
       shell: pwsh
 
     - name: Build VSIX Project
