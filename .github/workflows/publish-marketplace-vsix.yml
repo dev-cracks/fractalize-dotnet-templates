@@ -45,7 +45,7 @@ jobs:
         /t:Build
       shell: pwsh
 
-    - name: Find VSIX File # Modificado para trimado más robusto
+    - name: Find VSIX File 
       id: find_vsix 
       run: |
         $searchPath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/bin/${{ env.BUILD_CONFIGURATION }}"
@@ -61,9 +61,8 @@ jobs:
           throw "No se encontró ningún archivo .vsix." 
         }
 
-        # Aseguramos que solo tomamos la primera ruta y la limpiamos a fondo
         $foundVsixFullPath = ($vsixFiles | Select-Object -First 1 -ExpandProperty FullName)
-        $vsixPathOutput = $foundVsixFullPath.ToString().Trim() # Convertir a string y trimar
+        $vsixPathOutput = $foundVsixFullPath.ToString().Trim()
 
         if ([string]::IsNullOrWhiteSpace($vsixPathOutput)) {
             Write-Host "ERROR: La ruta del archivo VSIX es nula o vacía después de la selección y limpieza."
@@ -71,8 +70,6 @@ jobs:
         }
 
         Write-Host "DEBUG: Archivo VSIX encontrado (FINAL para salida): ${vsixPathOutput}"
-        # Intentamos una forma ligeramente diferente de escribir la salida, aunque la anterior es estándar.
-        # Esto escribe directamente al archivo de entorno GITHUB_OUTPUT.
         Add-Content -Path $env:GITHUB_OUTPUT -Value "vsix_file=$vsixPathOutput"
       shell: pwsh
 
@@ -82,10 +79,15 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Publish VSIX to Visual Studio Marketplace
+    - name: Publish VSIX to Visual Studio Marketplace # <-- ¡Paso modificado!
       uses: mrluje/vs-marketplace-publisher@v2
       with:
-        extensionId: ${{ secrets.MARKETPLACE_EXTENSION_ID }}
-        publisherId: ${{ secrets.MARKETPLACE_PUBLISHER_ID }}   
-        vsixFile: ${{ steps.find_vsix.outputs.vsix_file }} 
+        # El nombre del input ha cambiado de vsixFile a vsixPath
+        vsixPath: ${{ steps.find_vsix.outputs.vsix_file }} 
+        # extensionId y publisherId YA NO SON NECESARIOS, se infieren del manifest
+        
+        # Necesitamos la ruta al archivo source.extension.vsixmanifest
+        manifestPath: ${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/source.extension.vsixmanifest
+        
+        # El PAT sigue siendo necesario
         pat: ${{ secrets.VS_MARKETPLACE_PAT }}
