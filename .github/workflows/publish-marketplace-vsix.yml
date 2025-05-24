@@ -18,7 +18,6 @@ jobs:
       
       SOLUTION_DIRECTORY: 'src' 
       BUILD_CONFIGURATION: 'Release' 
-      # VISUAL_STUDIO_VERSION ya no es tan crítico si usamos vswhere
 
     steps:
     - name: Checkout Repository
@@ -32,45 +31,14 @@ jobs:
     - name: Restore NuGet packages
       run: dotnet restore ${{ env.SOLUTION_DIRECTORY }}/${{ env.SOLUTION_FILE_NAME }}
 
-    - name: Find MSBuild.exe path
-      id: find_msbuild
-      run: |
-        $ErrorActionPreference = "Continue"
-
-        $vswherePath = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-        if (-not (Test-Path $vswherePath)) {
-            Write-Host "ERROR: vswhere.exe no encontrado en: $vswherePath"
-            exit 1
-        }
-
-        $installationPath = & $vswherePath -latest -prerelease -products Microsoft.VisualStudio.Product.Enterprise Microsoft.VisualStudio.Product.Professional Microsoft.VisualStudio.Product.Community -requires Microsoft.Component.MSBuild -property installationPath
-        
-        if ([string]::IsNullOrWhiteSpace($installationPath)) {
-            $installationPath = & $vswherePath -latest -prerelease -property installationPath
-            if ([string]::IsNullOrWhiteSpace($installationPath)) {
-                 Write-Host "FATAL ERROR: No se encontró ninguna instalación de Visual Studio. No se puede continuar."
-                 exit 1
-            }
-        }
-
-        $msbuildExePath = Join-Path $installationPath "MSBuild\Current\Bin\msbuild.exe"
-        
-        if (-not (Test-Path $msbuildExePath)) {
-            Write-Host "ERROR: msbuild.exe no encontrado en la ruta construida: $msbuildExePath"
-            exit 1
-        }
-
-        echo "msbuild_path=$msbuildExePath" >> $GITHUB_OUTPUT
-      shell: pwsh
-
     - name: Build VSIX Project
-      run: |
-        & "${{ steps.find_msbuild.outputs.msbuild_path }}" `
+      run: msbuild.exe `
         "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/${{ env.VSIX_PROJECT_NAME }}.csproj" `
         /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
         /p:DeployExtension=false `
         /p:ZipPackage=true `
         /t:Build
+      shell: pwsh
 
     - name: Find VSIX File
       id: find_vsix 
