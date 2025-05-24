@@ -82,19 +82,22 @@ jobs:
     - name: Setup Node.js for vsce
       uses: actions/setup-node@v4
       with:
-        node-version: '18' # Una versión LTS estable
+        node-version: '18' 
 
     - name: Install vsce CLI
       run: npm install -g vsce
       shell: pwsh
 
-    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce)
+    - name: Publish VSIX to Visual Studio Marketplace (Manual vsce) # <-- ¡Paso modificado para depuración!
       run: |
-        # Cambiar al directorio donde está el source.extension.vsixmanifest
-        # vsce publish a menudo lo busca en el directorio de trabajo.
-        cd ${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}
+        $vsixProjectDir = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}"
+        Write-Host "DEBUG: Cambiando al directorio del proyecto VSIX: ${vsixProjectDir}"
+        cd $vsixProjectDir
 
-        # Ejecutar el comando vsce publish
-        # NOTA: Se ha eliminado '--target="Microsoft.VisualStudio.Ide"'
+        Write-Host "DEBUG: Listando el contenido completo del directorio actual para encontrar el manifest:"
+        # Listar contenido recursivamente para encontrar el manifest si está en una subcarpeta
+        Get-ChildItem -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host " - $($_.Name) (Tipo: $($_.GetType().Name)) (Ruta: $($_.FullName))" }
+
+        Write-Host "DEBUG: Intentando publicar el VSIX..."
         vsce publish --packagePath "${{ steps.find_vsix.outputs.vsix_file }}" -p "${{ secrets.VS_MARKETPLACE_PAT }}"
       shell: pwsh
