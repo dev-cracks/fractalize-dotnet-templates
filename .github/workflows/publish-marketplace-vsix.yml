@@ -51,7 +51,7 @@ jobs:
         $searchPath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/bin/${{ env.BUILD_CONFIGURATION }}"
         Write-Host "DEBUG: Buscando archivo .vsix en el directorio: ${searchPath}"
         
-        Write-Host "DEBUG: Contenido de ${searchPath}:" # <-- ¡Esta es la línea que causaba el problema!
+        Write-Host "DEBUG: Contenido de ${searchPath}:"
         Get-ChildItem -Path $searchPath -ErrorAction SilentlyContinue | ForEach-Object { Write-Host " - $($_.Name)" }
 
         $vsixFiles = Get-ChildItem -Path $searchPath -Filter "*.vsix" -Recurse -ErrorAction SilentlyContinue
