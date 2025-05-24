@@ -79,13 +79,8 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Publish VSIX to Visual Studio Marketplace # <-- ¡Paso completamente cambiado!
-      uses: vsce-action/vsce-publish@v2 # Usamos una acción diferente
+    - name: Publish VSIX to Visual Studio Marketplace 
+      uses: vsce-action/vsce-publish@release # <-- ¡Cambio aquí: de @v2 a @release!
       with:
         pat: ${{ secrets.VS_MARKETPLACE_PAT }}
-        # Nota: vsce-action/vsce-publish normalmente publica la extensión del directorio actual
-        # o toma un archivo VSIX si se especifica un packagePath.
-        # Ya tenemos el .vsix listo, así que lo pasamos.
-        packagePath: ${{ steps.find_vsix.outputs.vsix_file }} 
-        # La acción 'vsce-publish' infiere el publisher/extensionId del vsixmanifest,
-        # no necesitas pasarlos como inputs separados.
+        packagePath: ${{ steps.find_vsix.outputs.vsix_file }}
