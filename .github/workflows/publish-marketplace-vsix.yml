@@ -107,21 +107,20 @@ jobs:
         Write-Host "DEBUG:   ID del publicador: $publisherId"
         Write-Host "DEBUG:   Versión: $version"
 
-        # 4. Crear el contenido del manifiesto de publicación JSON con la estructura 'identity' anidada
+        # 4. Crear el contenido del manifiesto de publicación JSON con la estructura 'identity' y 'categories'
         $publishManifestContent = @{
-            identity = @{ # <--- ¡Nueva sección 'identity' y estructura corregida!
+            identity = @{ 
                 id = $extensionId
                 publisher = $publisherId
                 version = $version
-                internalName = $extensionId # <--- ¡Añadido 'internalName'!
+                internalName = $extensionId 
             }
-            # Puedes añadir otras propiedades aquí si el Marketplace las requiere para la publicación inicial,
-            # por ejemplo, "galleryFlags": "Public", "tags": ["tag1", "tag2"], "categories": ["category1"]
-            # Pero para la publicación básica, 'identity' es lo principal.
+            # ¡Añadido 'categories' como un array de strings!
+            categories = @("Build and Deployment", "Templates", "Coding") # Puedes ajustar estas categorías
         } | ConvertTo-Json -Depth 10 # Convertir a JSON
 
         # 5. Guardar el manifiesto JSON en un archivo temporal
-        $publishManifestJsonPath = "${{ runner.temp }}/publishManifest.json" # Guardar en un directorio temporal seguro
+        $publishManifestJsonPath = "${{ runner.temp }}/publishManifest.json" 
         $publishManifestContent | Out-File -FilePath $publishManifestJsonPath -Encoding utf8
 
         Write-Host "DEBUG: Manifiesto JSON de publicación creado en: ${publishManifestJsonPath}"
@@ -133,6 +132,6 @@ jobs:
         # 6. Ejecutar VsixPublisher.exe con los argumentos correctos
         & "${vsixPublisherPath}" publish `
             -payload "${{ steps.find_vsix.outputs.vsix_file }}" `
-            -publishManifest "${publishManifestJsonPath}" ` # <-- ¡Argumento corregido y apuntando al JSON correcto!
+            -publishManifest "${publishManifestJsonPath}" ` 
             -personalAccessToken "${{ secrets.VS_MARKETPLACE_PAT }}"
       shell: pwsh
