@@ -97,8 +97,7 @@ jobs:
         # 2. Cargar el XML del manifiesto
         Write-Host "DEBUG: Leyendo contenido de source.extension.vsixmanifest de: ${vsixManifestSourcePath}"
         $rawXmlContent = Get-Content $vsixManifestSourcePath | Out-String
-        Write-Host "DEBUG: Contenido RAW del XML:"
-        # Limita la salida para no llenar el log con XML muy grande
+        Write-Host "DEBUG: Contenido RAW del XML (primeras 500 chars):"
         Write-Host ($rawXmlContent.Substring(0, [System.Math]::Min(500, $rawXmlContent.Length)) + "...") 
         [xml]$vsixManifestXml = $rawXmlContent
 
@@ -120,17 +119,27 @@ jobs:
         
         if ($categoriesNodeParent -and $categoriesNodeParent.Category) {
             Write-Host "DEBUG: Nodos <Category> encontrados en el XML."
-            # Asegura que siempre se maneje como un array de XmlElement, incluso si solo hay uno
+            # Asegura que siempre se maneje como un array para la iteración
             $categoryNodes = @($categoriesNodeParent.Category) 
 
             foreach ($categoryNode in $categoryNodes) {
                 Write-Host "DEBUG: Tipo de objeto procesando: $($categoryNode.GetType().Name)"
                 Write-Host "DEBUG: Procesando nodo de categoría (XML literal de objeto): $($categoryNode | Out-String -Stream)"
                 
-                # Usar InnerText para obtener el contenido del texto del nodo XML de forma robusta
-                $categoryText = $categoryNode.InnerText.Trim() 
+                $categoryText = "" # Inicializar
+                if ($categoryNode -is [System.Xml.XmlElement]) {
+                    # Si es un objeto XmlElement, usar InnerText
+                    $categoryText = $categoryNode.InnerText.Trim() 
+                    Write-Host "DEBUG: (Es XmlElement) Texto extraído: '$($categoryText)'"
+                } elseif ($categoryNode -is [string]) {
+                    # Si ya es una cadena, usarla directamente
+                    $categoryText = $categoryNode.Trim()
+                    Write-Host "DEBUG: (Es String) Texto extraído: '$($categoryText)'"
+                } else {
+                    Write-Host "DEBUG: Tipo de objeto inesperado para categoría: $($categoryNode.GetType().Name)"
+                }
                 
-                Write-Host "DEBUG: Texto extraído de la categoría (con InnerText): '$($categoryText)' (es nulo o vacío: $([string]::IsNullOrEmpty($categoryText)))"
+                Write-Host "DEBUG: Texto extraído de la categoría (final): '$($categoryText)' (es nulo o vacío: $([string]::IsNullOrEmpty($categoryText)))"
                 
                 if (-not [string]::IsNullOrEmpty($categoryText)) {
                     $categories += $categoryText
