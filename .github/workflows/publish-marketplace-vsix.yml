@@ -98,7 +98,8 @@ jobs:
         Write-Host "DEBUG: Leyendo contenido de source.extension.vsixmanifest de: ${vsixManifestSourcePath}"
         $rawXmlContent = Get-Content $vsixManifestSourcePath | Out-String
         Write-Host "DEBUG: Contenido RAW del XML:"
-        Write-Host $rawXmlContent
+        # Limita la salida para no llenar el log con XML muy grande
+        Write-Host ($rawXmlContent.Substring(0, [System.Math]::Min(500, $rawXmlContent.Length)) + "...") 
         [xml]$vsixManifestXml = $rawXmlContent
 
         # 3. Extraer detalles para el manifiesto JSON de publicación
@@ -114,12 +115,23 @@ jobs:
         # Extraer categorías del manifiesto XML de forma robusta
         $categories = @()
         Write-Host "DEBUG: Intentando extraer categorías del source.extension.vsixmanifest..."
-        if ($vsixManifestXml.PackageManifest.Metadata.Categories.Category) {
+        
+        $categoriesNodeParent = $vsixManifestXml.PackageManifest.Metadata.Categories
+        
+        if ($categoriesNodeParent -and $categoriesNodeParent.Category) {
             Write-Host "DEBUG: Nodos <Category> encontrados en el XML."
-            foreach ($categoryNode in $vsixManifestXml.PackageManifest.Metadata.Categories.Category) {
-                Write-Host "DEBUG: Procesando nodo de categoría (XML literal): $($categoryNode | Out-String -Stream)"
-                $categoryText = $categoryNode.'#text'
-                Write-Host "DEBUG: Texto extraído de la categoría: '$($categoryText)' (es nulo o vacío: $([string]::IsNullOrEmpty($categoryText)))"
+            # Asegura que siempre se maneje como un array de XmlElement, incluso si solo hay uno
+            $categoryNodes = @($categoriesNodeParent.Category) 
+
+            foreach ($categoryNode in $categoryNodes) {
+                Write-Host "DEBUG: Tipo de objeto procesando: $($categoryNode.GetType().Name)"
+                Write-Host "DEBUG: Procesando nodo de categoría (XML literal de objeto): $($categoryNode | Out-String -Stream)"
+                
+                # Usar InnerText para obtener el contenido del texto del nodo XML de forma robusta
+                $categoryText = $categoryNode.InnerText.Trim() 
+                
+                Write-Host "DEBUG: Texto extraído de la categoría (con InnerText): '$($categoryText)' (es nulo o vacío: $([string]::IsNullOrEmpty($categoryText)))"
+                
                 if (-not [string]::IsNullOrEmpty($categoryText)) {
                     $categories += $categoryText
                     Write-Host "DEBUG: Categoría XML válida añadida: '$categoryText'"
