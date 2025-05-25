@@ -79,7 +79,7 @@ jobs:
         name: vsix-package
         path: ${{ steps.find_vsix.outputs.vsix_file }}
 
-    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe) # <-- ¡Paso modificado!
+    - name: Publish VSIX to Visual Studio Marketplace (using VsixPublisher.exe)
       run: |
         # Intentamos localizar VsixPublisher.exe.
         $vsixPublisherPath = Get-ChildItem -Path C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\* -Filter VsixPublisher.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
@@ -102,28 +102,38 @@ jobs:
         $publisherId = $vsixManifestXml.PackageManifest.Metadata.Identity.Publisher
         $version = $vsixManifestXml.PackageManifest.Metadata.Identity.Version
         $displayName = $vsixManifestXml.PackageManifest.Metadata.DisplayName
-        # Acceder al texto interno de la descripción (manejar si es nulo o vacío)
         $description = $vsixManifestXml.PackageManifest.Metadata.Description.'#text'
         if ([string]::IsNullOrEmpty($description)) {
-            $description = "A Visual Studio extension." # Fallback default description
+            $description = "A Visual Studio extension."
         }
 
-        # Extraer categorías del manifiesto XML
+        # Extraer categorías del manifiesto XML de forma robusta
         $categories = @()
+        Write-Host "DEBUG: Intentando extraer categorías del source.extension.vsixmanifest..."
         if ($vsixManifestXml.PackageManifest.Metadata.Categories.Category) {
-            # Si hay múltiples categorías, se accede como un array
-            $vsixManifestXml.PackageManifest.Metadata.Categories.Category | ForEach-Object { $categories += $_.'#text' }
+            # Ensure we handle single or multiple categories correctly, and only add non-empty strings
+            foreach ($categoryNode in $vsixManifestXml.PackageManifest.Metadata.Categories.Category) {
+                $categoryText = $categoryNode.'#text'
+                if (-not [string]::IsNullOrEmpty($categoryText)) {
+                    $categories += $categoryText
+                    Write-Host "DEBUG: Categoría XML encontrada: '$categoryText'"
+                } else {
+                    Write-Host "DEBUG: Categoría XML vacía o nula encontrada, saltando."
+                }
+            }
+        } else {
+            Write-Host "DEBUG: No se encontró el nodo <Categories> o <Category> en el XML."
         }
-        # Si no se encuentran categorías en el XML, usar un fallback (aunque ahora deberían estar)
+        
+        # Fallback si no se encuentran categorías válidas
         if ($categories.Count -eq 0) {
-            Write-Host "WARNING: No se encontraron categorías en source.extension.vsixmanifest. Usando categorías por defecto."
-            $categories = @("Tools", "Productivity") # Fallback si no se definen en XML
+            Write-Host "WARNING: No se encontraron categorías válidas en source.extension.vsixmanifest. Usando categorías por defecto: 'Tools', 'Productivity'."
+            $categories = @("Tools", "Productivity") # Usar categorías de fallback si no se encuentran
         }
 
-        # Construir la ruta absoluta al README.md en la raíz del repositorio
+        # Construir la ruta absoluta al README.md
         $repoRoot = "${{ github.workspace }}" 
         $readmePath = Join-Path -Path $repoRoot -ChildPath "README.md"
-        # Asegurarse de que el README.md exista
         if (-not (Test-Path -Path $readmePath)) {
             Write-Host "ERROR: El archivo README.md no se encontró en la raíz del repositorio: ${readmePath}"
             throw "README.md no encontrado."
@@ -136,7 +146,7 @@ jobs:
         Write-Host "DEBUG:   Nombre para mostrar: $displayName"
         Write-Host "DEBUG:   Descripción: $description"
         Write-Host "DEBUG:   Versión: $version"
-        Write-Host "DEBUG:   Categorías extraídas: $($categories -join ', ')"
+        Write-Host "DEBUG:   Categorías finales para JSON: $($categories -join ', ')"
         Write-Host "DEBUG:   Ruta del README.md: ${readmePath}"
 
         # 4. Crear el contenido del manifiesto de publicación JSON con la estructura completa
@@ -147,14 +157,12 @@ jobs:
                 version = $version
                 internalName = $extensionId 
             }
-            # Propiedades de nivel superior
             displayName = $displayName
             description = $description
             categories = $categories 
             galleryFlags = "Public" 
-            overview = $readmePath # ¡Añadido: Ruta al archivo README.md!
-            # Puedes añadir tags aquí si es necesario, e.g., tags = @("template", "csharp")
-        } | ConvertTo-Json -Depth 10 # Convertir a JSON
+            overview = $readmePath 
+        } | ConvertTo-Json -Depth 10 
 
         # 5. Guardar el manifiesto JSON en un archivo temporal
         $publishManifestJsonPath = "${{ runner.temp }}/publishManifest.json" 
