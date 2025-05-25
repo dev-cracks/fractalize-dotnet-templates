@@ -57,16 +57,16 @@ jobs:
         $vsixFiles = Get-ChildItem -Path $searchPath -Filter "*.vsix" -Recurse -ErrorAction SilentlyContinue
         
         if (-not $vsixFiles) {
-          Write-Host "ERROR: °Ning˙n archivo .vsix encontrado en la ruta esperada: ${searchPath}!"
-          throw "No se encontrÛ ning˙n archivo .vsix." 
+          Write-Host "ERROR: ¬°Ning√∫n archivo .vsix encontrado en la ruta esperada: ${searchPath}!"
+          throw "No se encontr√≥ ning√∫n archivo .vsix." 
         }
 
         $foundVsixFullPath = ($vsixFiles | Select-Object -First 1 -ExpandProperty FullName)
         $vsixPathOutput = $foundVsixFullPath.ToString().Trim()
 
         if ([string]::IsNullOrWhiteSpace($vsixPathOutput)) {
-            Write-Host "ERROR: La ruta del archivo VSIX es nula o vacÌa despuÈs de la selecciÛn y limpieza."
-            throw "La ruta del archivo VSIX es nula o vacÌa."
+            Write-Host "ERROR: La ruta del archivo VSIX es nula o vac√≠a despu√©s de la selecci√≥n y limpieza."
+            throw "La ruta del archivo VSIX es nula o vac√≠a."
         }
 
         Write-Host "DEBUG: Archivo VSIX encontrado (FINAL para salida): ${vsixPathOutput}"
@@ -85,7 +85,7 @@ jobs:
         $vsixPublisherPath = Get-ChildItem -Path C:\Users\runneradmin\.nuget\packages\Microsoft.VSSDK.BuildTools\* -Filter VsixPublisher.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
 
         if (-not $vsixPublisherPath) {
-            Write-Host "ERROR: VsixPublisher.exe no se encontrÛ. Aseg˙rate de que Microsoft.VSSDK.BuildTools est· instalado."
+            Write-Host "ERROR: VsixPublisher.exe no se encontr√≥. Aseg√∫rate de que Microsoft.VSSDK.BuildTools est√° instalado."
             throw "VsixPublisher.exe no encontrado."
         }
 
@@ -95,9 +95,13 @@ jobs:
         $vsixManifestSourcePath = "${{ env.SOLUTION_DIRECTORY }}/${{ env.VSIX_PROJECT_NAME }}/source.extension.vsixmanifest"
         
         # 2. Cargar el XML del manifiesto
-        [xml]$vsixManifestXml = Get-Content $vsixManifestSourcePath
+        Write-Host "DEBUG: Leyendo contenido de source.extension.vsixmanifest de: ${vsixManifestSourcePath}"
+        $rawXmlContent = Get-Content $vsixManifestSourcePath | Out-String
+        Write-Host "DEBUG: Contenido RAW del XML:"
+        Write-Host $rawXmlContent
+        [xml]$vsixManifestXml = $rawXmlContent
 
-        # 3. Extraer detalles para el manifiesto JSON de publicaciÛn
+        # 3. Extraer detalles para el manifiesto JSON de publicaci√≥n
         $extensionId = $vsixManifestXml.PackageManifest.Metadata.Identity.Id
         $publisherId = $vsixManifestXml.PackageManifest.Metadata.Identity.Publisher
         $version = $vsixManifestXml.PackageManifest.Metadata.Identity.Version
@@ -107,49 +111,50 @@ jobs:
             $description = "A Visual Studio extension."
         }
 
-        # Extraer categorÌas del manifiesto XML de forma robusta
+        # Extraer categor√≠as del manifiesto XML de forma robusta
         $categories = @()
-        Write-Host "DEBUG: Intentando extraer categorÌas del source.extension.vsixmanifest..."
+        Write-Host "DEBUG: Intentando extraer categor√≠as del source.extension.vsixmanifest..."
         if ($vsixManifestXml.PackageManifest.Metadata.Categories.Category) {
-            # Ensure we handle single or multiple categories correctly, and only add non-empty strings
+            Write-Host "DEBUG: Nodos <Category> encontrados en el XML."
             foreach ($categoryNode in $vsixManifestXml.PackageManifest.Metadata.Categories.Category) {
+                Write-Host "DEBUG: Procesando nodo de categor√≠a (XML literal): $($categoryNode | Out-String -Stream)"
                 $categoryText = $categoryNode.'#text'
+                Write-Host "DEBUG: Texto extra√≠do de la categor√≠a: '$($categoryText)' (es nulo o vac√≠o: $([string]::IsNullOrEmpty($categoryText)))"
                 if (-not [string]::IsNullOrEmpty($categoryText)) {
                     $categories += $categoryText
-                    Write-Host "DEBUG: CategorÌa XML encontrada: '$categoryText'"
+                    Write-Host "DEBUG: Categor√≠a XML v√°lida a√±adida: '$categoryText'"
                 } else {
-                    Write-Host "DEBUG: CategorÌa XML vacÌa o nula encontrada, saltando."
+                    Write-Host "DEBUG: Categor√≠a XML vac√≠a o nula encontrada, saltando."
                 }
             }
         } else {
-            Write-Host "DEBUG: No se encontrÛ el nodo <Categories> o <Category> en el XML."
+            Write-Host "DEBUG: No se encontr√≥ el nodo <Categories> o <Category> en el XML."
         }
         
-        # Fallback si no se encuentran categorÌas v·lidas
         if ($categories.Count -eq 0) {
-            Write-Host "WARNING: No se encontraron categorÌas v·lidas en source.extension.vsixmanifest. Usando categorÌas por defecto: 'Tools', 'Productivity'."
-            $categories = @("Tools", "Productivity") # Usar categorÌas de fallback si no se encuentran
+            Write-Host "WARNING: No se encontraron categor√≠as v√°lidas en source.extension.vsixmanifest. Usando categor√≠as por defecto: 'Tools', 'Productivity'."
+            $categories = @("Tools", "Productivity")
         }
 
         # Construir la ruta absoluta al README.md
         $repoRoot = "${{ github.workspace }}" 
         $readmePath = Join-Path -Path $repoRoot -ChildPath "README.md"
         if (-not (Test-Path -Path $readmePath)) {
-            Write-Host "ERROR: El archivo README.md no se encontrÛ en la raÌz del repositorio: ${readmePath}"
+            Write-Host "ERROR: El archivo README.md no se encontr√≥ en la ra√≠z del repositorio: ${readmePath}"
             throw "README.md no encontrado."
         }
 
 
-        Write-Host "DEBUG: Datos extraÌdos del source.extension.vsixmanifest:"
-        Write-Host "DEBUG:   ID de la extensiÛn: $extensionId"
+        Write-Host "DEBUG: Datos extra√≠dos del source.extension.vsixmanifest (finales para JSON):"
+        Write-Host "DEBUG:   ID de la extensi√≥n: $extensionId"
         Write-Host "DEBUG:   ID del publicador: $publisherId"
         Write-Host "DEBUG:   Nombre para mostrar: $displayName"
-        Write-Host "DEBUG:   DescripciÛn: $description"
-        Write-Host "DEBUG:   VersiÛn: $version"
-        Write-Host "DEBUG:   CategorÌas finales para JSON: $($categories -join ', ')"
+        Write-Host "DEBUG:   Descripci√≥n: $description"
+        Write-Host "DEBUG:   Versi√≥n: $version"
+        Write-Host "DEBUG:   Categor√≠as finales para JSON: $($categories -join ', ')"
         Write-Host "DEBUG:   Ruta del README.md: ${readmePath}"
 
-        # 4. Crear el contenido del manifiesto de publicaciÛn JSON con la estructura completa
+        # 4. Crear el contenido del manifiesto de publicaci√≥n JSON con la estructura completa
         $publishManifestContent = @{
             identity = @{ 
                 id = $extensionId
@@ -168,7 +173,7 @@ jobs:
         $publishManifestJsonPath = "${{ runner.temp }}/publishManifest.json" 
         $publishManifestContent | Out-File -FilePath $publishManifestJsonPath -Encoding utf8
 
-        Write-Host "DEBUG: Manifiesto JSON de publicaciÛn creado en: ${publishManifestJsonPath}"
+        Write-Host "DEBUG: Manifiesto JSON de publicaci√≥n creado en: ${publishManifestJsonPath}"
         Write-Host "DEBUG: Contenido del publishManifest.json:"
         Get-Content $publishManifestJsonPath
 
